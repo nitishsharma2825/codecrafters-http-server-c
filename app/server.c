@@ -59,7 +59,29 @@ int main() {
 	printf("Client connected\n");
 
 	char resp[] = "HTTP/1.1 200 OK\r\n\r\n";
-	send(client_fd, &resp, sizeof(resp), 0);
+	// send(client_fd, &resp, sizeof(resp), 0);
+	char request[256];
+	recv(client_fd, &request, sizeof(request), 0);
+	char url[20];
+	int cur = 4;
+	while (request[cur]!=' ')
+	{
+		url[cur-4] = request[cur];
+		cur++;
+	}
+
+	// printf("request is: %s", request);
+	// printf("request is: %s", url);
+	if (strlen(url) == 1)
+	{
+		send(client_fd, &resp, sizeof(resp), 0);
+	} else
+	{
+		char resp404[] = "HTTP/1.1 404 Not Found\r\n\r\n";
+		send(client_fd, &resp404, sizeof(resp404), 0);
+	}
+	
+	
 
 	close(server_fd);
 
