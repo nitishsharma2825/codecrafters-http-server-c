@@ -58,31 +58,37 @@ int main() {
 	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
 	printf("Client connected\n");
 
-	char resp[] = "HTTP/1.1 200 OK\r\n\r\n";
-	// send(client_fd, &resp, sizeof(resp), 0);
 	char request[256];
 	recv(client_fd, &request, sizeof(request), 0);
-	char url[20];
-	int cur = 4;
-	while (request[cur]!=' ')
-	{
-		url[cur-4] = request[cur];
+	char url[256];
+	int cur = 5;
+	while (request[cur] != ' ') {
+		url[cur - 5] = request[cur];
 		cur++;
 	}
-
-	// printf("request is: %s", request);
-	// printf("request is: %s", url);
-	if (strlen(url) == 1)
-	{
-		send(client_fd, &resp, sizeof(resp), 0);
-	} else
-	{
-		char resp404[] = "HTTP/1.1 404 Not Found\r\n\r\n";
-		send(client_fd, &resp404, sizeof(resp404), 0);
+	url[cur-5]='\0';
+	if (strlen(url) == 0) {
+		char resp202[] = "HTTP/1.1 200 OK\r\n\r\n";
+		send(client_fd, &resp202, sizeof(resp202), 0);
+	} else {
+		if (url[0]=='e' && url[1]=='c' && url[2]=='h' && url[3]=='o')
+		{
+			char respStr[256];
+			int next = 5;
+			while (url[next]!=' ')
+			{
+				respStr[next-5] = url[next];
+				next++;
+			}
+			respStr[cur-10] = '\0';
+			char response[256];
+			snprintf(response, sizeof(response), "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", strlen(respStr), respStr);
+			send(client_fd, &response, sizeof(response), 0);
+		} else {
+			char resp404[] = "HTTP/1.1 404 Not Found\r\n\r\n";
+			send(client_fd, &resp404, sizeof(resp404), 0);
+		}
 	}
-	
-	
-
 	close(server_fd);
 
 	return 0;
