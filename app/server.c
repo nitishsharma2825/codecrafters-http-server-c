@@ -58,37 +58,50 @@ int main() {
 	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
 	printf("Client connected\n");
 
-	char request[256];
-	recv(client_fd, &request, sizeof(request), 0);
-	char url[256];
-	int cur = 5;
-	while (request[cur] != ' ') {
-		url[cur - 5] = request[cur];
-		cur++;
-	}
-	url[cur-5]='\0';
-	if (strlen(url) == 0) {
-		char resp202[] = "HTTP/1.1 200 OK\r\n\r\n";
-		send(client_fd, &resp202, sizeof(resp202), 0);
+	char readBuffer[1024];
+	recv(client_fd, readBuffer, sizeof(readBuffer), 0);
+	char *method = strdup(readBuffer);
+
+	char *reqPath = strtok(readBuffer, " ");  // GET/POST...
+	printf("Request Method: %s\n", reqPath);
+
+	reqPath = strtok(NULL, " ");
+	printf("Request URL: %s\n", reqPath);
+
+	if (strcmp(reqPath, "/") == 0)
+	{
+		char *resp = "HTTP/1.1 200 OK\r\n\r\n";
+		send(client_fd, resp, strlen(resp), 0);
+	} else if (strncmp(reqPath, "/echo/", 6) == 0)
+	{
+		reqPath = strtok(reqPath, "/"); // echo
+		reqPath = strtok(NULL, "/"); // 1234
+		
+		int contentLen = strlen(reqPath);
+		char resp[512];
+
+		sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
+		send(client_fd, resp, sizeof(resp), 0);
+
+	} else if (strcmp(reqPath, "/user-agent") == 0)
+	{
+		reqPath = strtok(NULL, "\r\n"); // request line
+		reqPath = strtok(NULL, "\r\n"); // 1st header Host:..
+		reqPath = strtok(NULL, "\r\n"); // 2nd header User Agent
+
+		char *headerBody = strtok(reqPath, " "); // User-Agent
+		headerBody = strtok(NULL, " "); // foobar/1.2.3
+
+		int contentLen = strlen(headerBody);
+		char resp[512];
+
+		sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, headerBody);
+		send(client_fd, resp, sizeof(resp), 0);
 	} else {
-		if (url[0]=='e' && url[1]=='c' && url[2]=='h' && url[3]=='o')
-		{
-			char respStr[256];
-			int next = 5;
-			while (url[next]!=' ')
-			{
-				respStr[next-5] = url[next];
-				next++;
-			}
-			respStr[cur-10] = '\0';
-			char response[256];
-			snprintf(response, sizeof(response), "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", strlen(respStr), respStr);
-			send(client_fd, &response, sizeof(response), 0);
-		} else {
-			char resp404[] = "HTTP/1.1 404 Not Found\r\n\r\n";
-			send(client_fd, &resp404, sizeof(resp404), 0);
-		}
+		char *resp = "HTTP/1.1 404 Not Found\r\n\r\n";
+		send(client_fd, resp, strlen(resp), 0);
 	}
+	
 	close(server_fd);
 
 	return 0;
