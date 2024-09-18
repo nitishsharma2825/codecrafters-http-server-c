@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	
-	// max 5 connections can be in queue, else would be rejected
+	// max 10 connections can be in queue, else would be rejected
 	int connection_backlog = 10;
 	if (listen(server_fd, connection_backlog) != 0) {
 		printf("Listen failed: %s \n", strerror(errno));
@@ -88,75 +88,124 @@ void *handleConnection(void *pclient_fd) {
 
 	char readBuffer[1024];
 	recv(client_fd, readBuffer, sizeof(readBuffer), 0);
+	char *content = strdup(readBuffer);
 	char *method = strdup(readBuffer);
 
 	// Revise strtok function
 	char *reqPath = strtok(readBuffer, " ");  // GET/POST
 	printf("Request Method: %s\n", reqPath);
 
-	reqPath = strtok(NULL, " "); // Url eg: /echo/1234
-	printf("Request URL: %s\n", reqPath);
-
-	if (strcmp(reqPath, "/") == 0)
+	if (strcmp(reqPath, "GET") == 0)
 	{
-		char *resp = "HTTP/1.1 200 OK\r\n\r\n";
-		send(client_fd, resp, strlen(resp), 0);
-	} else if (strncmp(reqPath, "/echo/", 6) == 0)
-	{
-		reqPath = strtok(reqPath, "/"); // echo
-		reqPath = strtok(NULL, "/"); // 1234
-		
-		int contentLen = strlen(reqPath);
-		char resp[512];
+		reqPath = strtok(NULL, " "); // Url eg: /echo/1234
+		printf("Request URL: %s\n", reqPath);
 
-		sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
-		send(client_fd, resp, sizeof(resp), 0);
-
-	} else if (strcmp(reqPath, "/user-agent") == 0)
-	{
-		reqPath = strtok(NULL, "\r\n"); // request line
-		reqPath = strtok(NULL, "\r\n"); // 1st header Host:..
-		reqPath = strtok(NULL, "\r\n"); // 2nd header User Agent:..
-
-		char *headerBody = strtok(reqPath, " "); // User-Agent
-		headerBody = strtok(NULL, " "); // foobar/1.2.3
-
-		int contentLen = strlen(headerBody);
-		char resp[512];
-
-		sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, headerBody);
-		send(client_fd, resp, sizeof(resp), 0);
-	} else if (strncmp(reqPath, "/files/", 7) == 0)
-	{
-		reqPath = strtok(reqPath, "/"); // files
-		reqPath = strtok(NULL, "/"); // filename
-
-		char *filePath = strcat(directory, reqPath);
-		printf("Filename: %s\n", filePath);
-
-		char fileBuffer[1024];
-		char resp[1024];
-
-		FILE *file = fopen(filePath, "r");
-		if (file == NULL)
+		if (strcmp(reqPath, "/") == 0)
 		{
-			printf("Unable to open the file");
-			sprintf(resp, "HTTP/1.1 404 Not Found\r\n\r\n");
-		} else {
-			while (!feof(file))
+			char *resp = "HTTP/1.1 200 OK\r\n\r\n";
+			send(client_fd, resp, strlen(resp), 0);
+		} else if (strncmp(reqPath, "/echo/", 6) == 0)
+		{
+			reqPath = strtok(reqPath, "/"); // echo
+			reqPath = strtok(NULL, "/"); // 1234
+			
+			int contentLen = strlen(reqPath);
+			char resp[512];
+
+			sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
+			send(client_fd, resp, sizeof(resp), 0);
+
+		} else if (strcmp(reqPath, "/user-agent") == 0)
+		{
+			reqPath = strtok(NULL, "\r\n"); // request line
+			reqPath = strtok(NULL, "\r\n"); // 1st header Host:..
+			reqPath = strtok(NULL, "\r\n"); // 2nd header User Agent:..
+
+			char *headerBody = strtok(reqPath, " "); // User-Agent
+			headerBody = strtok(NULL, " "); // foobar/1.2.3
+
+			int contentLen = strlen(headerBody);
+			char resp[512];
+
+			sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, headerBody);
+			send(client_fd, resp, sizeof(resp), 0);
+		} else if (strncmp(reqPath, "/files/", 7) == 0)
+		{
+			reqPath = strtok(reqPath, "/"); // files
+			reqPath = strtok(NULL, "/"); // filename
+
+			char *filePath = strcat(directory, reqPath);
+			printf("Filename: %s\n", filePath);
+
+			char fileBuffer[1024];
+			char resp[1024];
+
+			FILE *file = fopen(filePath, "r");
+			if (file == NULL)
 			{
-				fgets(fileBuffer, sizeof(fileBuffer), file);
+				printf("Unable to open the file");
+				sprintf(resp, "HTTP/1.1 404 Not Found\r\n\r\n");
+			} else {
+				while (!feof(file))
+				{
+					fgets(fileBuffer, sizeof(fileBuffer), file);
+				}
+
+				int contentLen = strlen(fileBuffer);
+				printf("content: %s\n", fileBuffer);
+				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLen, fileBuffer);
 			}
 
-			int contentLen = strlen(fileBuffer);
-			printf("content: %s\n", fileBuffer);
-			sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLen, fileBuffer);
+			send(client_fd, resp, sizeof(resp), 0);
+		} else {
+			char *resp = "HTTP/1.1 404 Not Found\r\n\r\n";
+			send(client_fd, resp, strlen(resp), 0);
 		}
+	} else if (strcmp(reqPath, "POST") == 0) {
+		reqPath = strtok(NULL, " "); // Url eg: /echo/1234
+		printf("Request URL: %s\n", reqPath);
 
-		send(client_fd, resp, sizeof(resp), 0);
-	} else {
-		char *resp = "HTTP/1.1 404 Not Found\r\n\r\n";
-		send(client_fd, resp, strlen(resp), 0);
+		if ((strncmp(reqPath, "/files/", 7) == 0))
+		{
+			reqPath = strtok(reqPath, "/"); // files
+			reqPath = strtok(NULL, "/"); // filename
+
+			char *filePath = strcat(directory, reqPath);
+			printf("Filename: %s\n", filePath);
+
+			FILE *file = fopen(filePath, "w");
+			if (file == NULL)
+			{
+				printf("Unable to open the file");
+				return 1;
+			} else {
+				printf("Content Length: %s\n", contentLengthHeader);
+				// read header and request body
+				char *contentLengthHeader = strtok(method, "\r\n"); // request line
+				printf("Content Length: %s\n", contentLengthHeader);
+				contentLengthHeader = strtok(NULL, "\r\n"); // user agent line
+				printf("Content Length: %s\n", contentLengthHeader);
+				contentLengthHeader = strtok(NULL, "\r\n"); // content length
+
+				printf("Content Length: %s\n", contentLengthHeader);
+				char contentBuffer[atoi(contentLengthHeader)];
+
+				char *reqContent = strtok(content, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+				reqContent = strtok(NULL, "\r\n");
+
+				printf("Content: %s\n", reqContent);
+
+				char *resp = "HTTP/1.1 201 Created\r\n\r\n";
+				send(client_fd, resp, sizeof(resp), 0);
+			}
+		}
+		
+
 	}
 
 	close(client_fd);
