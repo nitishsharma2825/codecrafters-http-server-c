@@ -6,6 +6,9 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pthread.h>
+
+void *handleConnection(void *pclient_fd);
 
 int main() {
 	// Disable output buffering
@@ -17,7 +20,7 @@ int main() {
 
 	// Uncomment this block to pass the first stage
 	
-	int server_fd, client_fd, client_addr_len;
+	int server_fd, client_socket, client_addr_len;
 	struct sockaddr_in client_addr;
 	
 	// Create a new TCP socket for IPv4
@@ -55,17 +58,31 @@ int main() {
 	printf("Waiting for a client to connect...\n");
 	client_addr_len = sizeof(client_addr);
 	
-	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+	while (1)
+	{
+		client_socket = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+		pthread_t connectionThread;
+		pthread_create(&connectionThread, NULL, handleConnection, &client_socket);
+	}
+	
+	close(server_fd);
+
+	return 0;
+}
+
+void *handleConnection(void *pclient_fd) {
+	int client_fd = *((int *)pclient_fd);
 	printf("Client connected\n");
 
 	char readBuffer[1024];
 	recv(client_fd, readBuffer, sizeof(readBuffer), 0);
 	char *method = strdup(readBuffer);
 
-	char *reqPath = strtok(readBuffer, " ");  // GET/POST...
+	// Revise strtok function
+	char *reqPath = strtok(readBuffer, " ");  // GET/POST
 	printf("Request Method: %s\n", reqPath);
 
-	reqPath = strtok(NULL, " ");
+	reqPath = strtok(NULL, " "); // Url eg: /echo/1234
 	printf("Request URL: %s\n", reqPath);
 
 	if (strcmp(reqPath, "/") == 0)
@@ -87,7 +104,7 @@ int main() {
 	{
 		reqPath = strtok(NULL, "\r\n"); // request line
 		reqPath = strtok(NULL, "\r\n"); // 1st header Host:..
-		reqPath = strtok(NULL, "\r\n"); // 2nd header User Agent
+		reqPath = strtok(NULL, "\r\n"); // 2nd header User Agent:..
 
 		char *headerBody = strtok(reqPath, " "); // User-Agent
 		headerBody = strtok(NULL, " "); // foobar/1.2.3
@@ -101,8 +118,6 @@ int main() {
 		char *resp = "HTTP/1.1 404 Not Found\r\n\r\n";
 		send(client_fd, resp, strlen(resp), 0);
 	}
-	
-	close(server_fd);
 
-	return 0;
+	close(client_fd);
 }
