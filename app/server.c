@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 	}
 	
 	// max 5 connections can be in queue, else would be rejected
-	int connection_backlog = 5;
+	int connection_backlog = 10;
 	if (listen(server_fd, connection_backlog) != 0) {
 		printf("Listen failed: %s \n", strerror(errno));
 		return 1;
