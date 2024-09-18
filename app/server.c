@@ -8,9 +8,21 @@
 #include <unistd.h>
 #include <pthread.h>
 
+char *directory;
+
 void *handleConnection(void *pclient_fd);
 
-int main() {
+int main(int argc, char **argv) {
+
+	if (argc >=2 && strncmp(argv[1], "--directory", 11) == 0)
+	{
+		directory = argv[2];
+	} else {
+		directory = "/";
+	}
+
+	printf("File Directory: %s\n", directory);
+
 	// Disable output buffering
 	setbuf(stdout, NULL);
  	setbuf(stderr, NULL);
@@ -113,6 +125,34 @@ void *handleConnection(void *pclient_fd) {
 		char resp[512];
 
 		sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, headerBody);
+		send(client_fd, resp, sizeof(resp), 0);
+	} else if (strncmp(reqPath, "/files/", 7) == 0)
+	{
+		reqPath = strtok(reqPath, "/"); // files
+		reqPath = strtok(NULL, "/"); // filename
+
+		char *filePath = strcat(directory, reqPath);
+		printf("Filename: %s\n", filePath);
+
+		char fileBuffer[1024];
+		char resp[1024];
+
+		FILE *file = fopen(filePath, "r");
+		if (file == NULL)
+		{
+			printf("Unable to open the file");
+			sprintf(resp, "HTTP/1.1 404 Not Found\r\n\r\n");
+		} else {
+			while (!feof(file))
+			{
+				fgets(fileBuffer, sizeof(fileBuffer), file);
+			}
+
+			int contentLen = strlen(fileBuffer);
+			printf("content: %s\n", fileBuffer);
+			sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLen, fileBuffer);
+		}
+
 		send(client_fd, resp, sizeof(resp), 0);
 	} else {
 		char *resp = "HTTP/1.1 404 Not Found\r\n\r\n";
