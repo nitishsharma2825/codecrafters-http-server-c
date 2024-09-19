@@ -151,6 +151,8 @@ void *handleConnection(void *pclient_fd) {
 					fgets(fileBuffer, sizeof(fileBuffer), file);
 				}
 
+				fclose(file);
+
 				int contentLen = strlen(fileBuffer);
 				printf("content: %s\n", fileBuffer);
 				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLen, fileBuffer);
@@ -173,35 +175,38 @@ void *handleConnection(void *pclient_fd) {
 			char *filePath = strcat(directory, reqPath);
 			printf("Filename: %s\n", filePath);
 
-			FILE *file = fopen(filePath, "w");
+			FILE *file = fopen(filePath, "wb");
 			if (file == NULL)
 			{
 				printf("Unable to open the file");
-				return 1;
 			} else {
-				printf("Content Length: %s\n", contentLengthHeader);
 				// read header and request body
 				char *contentLengthHeader = strtok(method, "\r\n"); // request line
-				printf("Content Length: %s\n", contentLengthHeader);
 				contentLengthHeader = strtok(NULL, "\r\n"); // user agent line
-				printf("Content Length: %s\n", contentLengthHeader);
 				contentLengthHeader = strtok(NULL, "\r\n"); // content length
 
 				printf("Content Length: %s\n", contentLengthHeader);
-				char contentBuffer[atoi(contentLengthHeader)];
+				int contentLengthHeader_i = atoi(contentLengthHeader);
+				char requestContent[contentLengthHeader_i + 1];
 
 				char *reqContent = strtok(content, "\r\n");
 				reqContent = strtok(NULL, "\r\n");
 				reqContent = strtok(NULL, "\r\n");
 				reqContent = strtok(NULL, "\r\n");
 				reqContent = strtok(NULL, "\r\n");
-				reqContent = strtok(NULL, "\r\n");
-				reqContent = strtok(NULL, "\r\n");
 
+				strcpy(requestContent, reqContent);
+				requestContent[contentLengthHeader_i - 1] = '\0';
 				printf("Content: %s\n", reqContent);
 
+				int bytesWritten = fputs(requestContent, file);
+
+				printf("bytes written: %d\n", bytesWritten);
+
+				fclose(file);
+
 				char *resp = "HTTP/1.1 201 Created\r\n\r\n";
-				send(client_fd, resp, sizeof(resp), 0);
+				send(client_fd, resp, strlen(resp), 0);
 			}
 		}
 		
