@@ -108,11 +108,24 @@ void *handleConnection(void *pclient_fd) {
 		{
 			reqPath = strtok(reqPath, "/"); // echo
 			reqPath = strtok(NULL, "/"); // 1234
+
+			char *contentHeader = strtok(method, "\r\n"); // request line
+			contentHeader = strtok(NULL, "\r\n");
+			contentHeader = strtok(NULL, "\r\n"); // Accept Encoding
+			contentHeader = strtok(contentHeader, " ");
+			contentHeader = strtok(NULL, " ");
 			
 			int contentLen = strlen(reqPath);
 			char resp[512];
 
-			sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
+			if (contentHeader != NULL && strcmp(contentHeader, "gzip") == 0)
+			{
+				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: %s\r\n\r\n%s", contentLen, contentHeader, reqPath);
+			} else
+			{
+				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
+			}
+			
 			send(client_fd, resp, sizeof(resp), 0);
 
 		} else if (strcmp(reqPath, "/user-agent") == 0)
