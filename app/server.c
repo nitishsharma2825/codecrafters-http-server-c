@@ -112,15 +112,28 @@ void *handleConnection(void *pclient_fd) {
 			char *contentHeader = strtok(method, "\r\n"); // request line
 			contentHeader = strtok(NULL, "\r\n");
 			contentHeader = strtok(NULL, "\r\n"); // Accept Encoding
-			contentHeader = strtok(contentHeader, " ");
-			contentHeader = strtok(NULL, " ");
+			contentHeader = strtok(contentHeader, ":");
+			contentHeader = strtok(NULL, ", ");
+
+			int foundValidEncoding = 0;
+			char *encoding = "gzip";
+			while (contentHeader != NULL)
+			{
+				if (strcmp(contentHeader, encoding) == 0)
+				{
+					foundValidEncoding = 1;
+					break;
+				}
+				contentHeader = strtok(NULL, ", ");
+			}
+			
 			
 			int contentLen = strlen(reqPath);
 			char resp[512];
 
-			if (contentHeader != NULL && strcmp(contentHeader, "gzip") == 0)
+			if (foundValidEncoding == 1)
 			{
-				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: %s\r\n\r\n%s", contentLen, contentHeader, reqPath);
+				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: %s\r\n\r\n%s", contentLen, encoding, reqPath);
 			} else
 			{
 				sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLen, reqPath);
